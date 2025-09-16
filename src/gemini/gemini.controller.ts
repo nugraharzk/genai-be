@@ -28,7 +28,7 @@ export class GeminiController {
 
   @Post('generate-text')
   @HttpCode(HttpStatus.OK)
-  async generateText(@Body() body: TextDto) {
+  generateText(@Body() body: TextDto) {
     const { prompt, model, systemInstruction } = body || {};
     if (!prompt || typeof prompt !== 'string') {
       return { error: 'prompt is required (string)' };
@@ -43,7 +43,7 @@ export class GeminiController {
     }),
   )
   @HttpCode(HttpStatus.OK)
-  async generateFromImage(
+  generateFromImage(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: PromptDto,
   ) {
@@ -52,7 +52,10 @@ export class GeminiController {
     const parts: any[] = [];
     if (prompt) parts.push({ text: prompt });
     parts.push(this.gemini.buildInlineDataPart(file.buffer, file.mimetype));
-    return this.gemini.generateFromInlineParts(parts, { model, systemInstruction });
+    return this.gemini.generateFromInlineParts(parts, {
+      model,
+      systemInstruction,
+    });
   }
 
   @Post('generate-from-document')
@@ -62,7 +65,7 @@ export class GeminiController {
     }),
   )
   @HttpCode(HttpStatus.OK)
-  async generateFromDocument(
+  generateFromDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: PromptDto,
   ) {
@@ -71,7 +74,10 @@ export class GeminiController {
     const parts: any[] = [];
     if (prompt) parts.push({ text: prompt });
     parts.push(this.gemini.buildInlineDataPart(file.buffer, file.mimetype));
-    return this.gemini.generateFromInlineParts(parts, { model, systemInstruction });
+    return this.gemini.generateFromInlineParts(parts, {
+      model,
+      systemInstruction,
+    });
   }
 
   @Post('generate-from-audio')
@@ -81,7 +87,7 @@ export class GeminiController {
     }),
   )
   @HttpCode(HttpStatus.OK)
-  async generateFromAudio(
+  generateFromAudio(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: PromptDto,
   ) {
@@ -90,7 +96,9 @@ export class GeminiController {
     const parts: any[] = [];
     if (prompt) parts.push({ text: prompt });
     parts.push(this.gemini.buildInlineDataPart(file.buffer, file.mimetype));
-    return this.gemini.generateFromInlineParts(parts, { model, systemInstruction });
+    return this.gemini.generateFromInlineParts(parts, {
+      model,
+      systemInstruction,
+    });
   }
 }
-

@@ -7,4 +7,3 @@ import { GeminiController } from './gemini.controller';
   providers: [GeminiService],
 })
 export class GeminiModule {}
-

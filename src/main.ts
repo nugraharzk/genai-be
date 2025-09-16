@@ -10,4 +10,5 @@ async function bootstrap() {
   app.enableCors();
   await app.listen(port);
 }
-bootstrap();
+// Avoid floating promise per ESLint rule
+void bootstrap();

@@ -14,7 +14,9 @@ export class GeminiService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-      throw new Error('Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in environment');
+      throw new Error(
+        'Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in environment',
+      );
     }
     // Defer actual loading until first use to surface clearer errors in context
     this.client = null;
@@ -26,7 +28,8 @@ export class GeminiService {
       await this.ensureClient();
       if (this.clientMode === 'genai' && this.client?.responses?.generate) {
         const req: any = { model: modelName };
-        if (options.systemInstruction) req.systemInstruction = options.systemInstruction;
+        if (options.systemInstruction)
+          req.systemInstruction = options.systemInstruction;
         req.input = prompt;
         const result = await this.client.responses.generate(req);
         const text =
@@ -38,7 +41,9 @@ export class GeminiService {
       } else if (this.client?.getGenerativeModel) {
         const model = this.client.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(prompt);
-        const text = result?.response?.text?.() ?? result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text =
+          result?.response?.text?.() ??
+          result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
         return { model: modelName, text };
       }
       throw new Error('No compatible Gemini client available');
@@ -53,7 +58,8 @@ export class GeminiService {
       await this.ensureClient();
       if (this.clientMode === 'genai' && this.client?.responses?.generate) {
         const req: any = { model: modelName };
-        if (options.systemInstruction) req.systemInstruction = options.systemInstruction;
+        if (options.systemInstruction)
+          req.systemInstruction = options.systemInstruction;
         req.input = [
           {
             role: 'user',
@@ -70,7 +76,9 @@ export class GeminiService {
       } else if (this.client?.getGenerativeModel) {
         const model = this.client.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(parts);
-        const text = result?.response?.text?.() ?? result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text =
+          result?.response?.text?.() ??
+          result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
         return { model: modelName, text };
       }
       throw new Error('No compatible Gemini client available');
@@ -88,37 +96,44 @@ export class GeminiService {
     if (this.client) return;
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-      throw new InternalServerErrorException('Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in environment');
+      throw new InternalServerErrorException(
+        'Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in environment',
+      );
     }
     // Try new SDK first (@google/genai)
     try {
       const mod = await import('@google/genai');
-      const maybeCtor = (mod as any).GoogleAI || (mod as any).default || (mod as any).Client;
+      const maybeCtor =
+        (mod as any).GoogleAI || (mod as any).default || (mod as any).Client;
       if (typeof maybeCtor === 'function') {
         this.client = new maybeCtor({ apiKey });
         this.clientMode = 'genai';
         return;
       }
       // Some variants export a factory
-      const maybeFactory = (mod as any).createClient || (mod as any).createGoogleAIClient;
+      const maybeFactory =
+        (mod as any).createClient || (mod as any).createGoogleAIClient;
       if (typeof maybeFactory === 'function') {
         this.client = maybeFactory({ apiKey });
         this.clientMode = 'genai';
         return;
       }
       // If module loaded but unexpected shape, fall through to legacy
-      // eslint-disable-next-line no-console
-      console.warn('Loaded @google/genai but did not find a constructible client; falling back');
+
+      console.warn(
+        'Loaded @google/genai but did not find a constructible client; falling back',
+      );
     } catch (e) {
       // Continue to fallback
-      // eslint-disable-next-line no-console
+
       console.warn('Failed to load @google/genai:', e);
     }
 
     // Fallback: legacy SDK (@google/generative-ai)
     try {
       const mod = await import('@google/generative-ai');
-      const GoogleGenerativeAI = (mod as any).GoogleGenerativeAI || (mod as any).default;
+      const GoogleGenerativeAI =
+        (mod as any).GoogleGenerativeAI || (mod as any).default;
       if (typeof GoogleGenerativeAI !== 'function') {
         throw new Error('Unexpected export shape for @google/generative-ai');
       }

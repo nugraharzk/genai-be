@@ -21,8 +21,7 @@ COPY tsconfig*.json ./
 COPY src ./src
 RUN pnpm build
 
-# Prune to production dependencies only
-RUN pnpm prune --prod
+## Note: Skip pruning here; install prod deps in runner
 
 # Runner stage (small, production-only)
 FROM node:22-alpine AS runner
@@ -31,9 +30,11 @@ ENV PORT=5000
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
 
-# Copy only what's needed
+# Copy manifest and install only production dependencies
 COPY package.json pnpm-lock.yaml ./
-COPY --from=builder /app/node_modules ./node_modules
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy build output
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 5000
