@@ -1,8 +1,10 @@
 #!/usr/bin/env sh
 # Husky pre-commit hook: run tests and build before committing
 
+. "$(dirname -- "$0")/_/husky.sh"
 set -e
 
+echo "[husky] Running linting..."
 pnpm lint
 
 echo "[husky] Running unit tests..."
@@ -12,4 +14,3 @@ echo "[husky] Building project..."
 pnpm build
 
 echo "[husky] OK"
-
