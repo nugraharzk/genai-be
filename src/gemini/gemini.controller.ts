@@ -27,7 +27,10 @@ export class GeminiController {
     if (!effectivePrompt && Array.isArray(messages)) {
       const lastUserMessage = [...messages]
         .reverse()
-        .find((message) => message?.role === 'user' && typeof message?.content === 'string');
+        .find(
+          (message) =>
+            message?.role === 'user' && typeof message?.content === 'string',
+        );
       if (lastUserMessage?.content) {
         effectivePrompt = lastUserMessage.content.trim();
       }
@@ -121,4 +124,3 @@ export class GeminiController {
     });
   }
 }
-

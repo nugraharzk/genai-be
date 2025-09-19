@@ -37,12 +37,18 @@ export class GeminiService {
         instructions.push(request.systemInstruction.trim());
       }
 
-      const history = this.mapMessagesToHistory(request.messages ?? [], instructions);
+      const history = this.mapMessagesToHistory(
+        request.messages ?? [],
+        instructions,
+      );
 
       await this.ensureClient();
 
       if (this.clientMode === 'genai' && this.client?.chats?.create) {
-        const { promptToSend, historyForSession } = this.prepareChatPayload(prompt, history);
+        const { promptToSend, historyForSession } = this.prepareChatPayload(
+          prompt,
+          history,
+        );
         const sessionInstruction = this.combineInstructions(instructions);
         const chatParams: Record<string, unknown> = { model: modelName };
         if (historyForSession.length) {
@@ -61,7 +67,8 @@ export class GeminiService {
       }
 
       const instructionText = this.combineInstructions(instructions);
-      const fallbackPrompt = prompt || this.buildFallbackPrompt(history, instructionText);
+      const fallbackPrompt =
+        prompt || this.buildFallbackPrompt(history, instructionText);
       return this.generateText(fallbackPrompt, {
         model: request.model,
         systemInstruction: instructionText,
@@ -248,7 +255,10 @@ export class GeminiService {
     return cleaned.join('\n\n');
   }
 
-  private buildFallbackPrompt(history: ChatContent[], instructionText?: string) {
+  private buildFallbackPrompt(
+    history: ChatContent[],
+    instructionText?: string,
+  ) {
     const lines: string[] = [];
     if (instructionText) {
       lines.push(`System: ${instructionText}`);
