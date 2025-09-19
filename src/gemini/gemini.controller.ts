@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -9,22 +10,43 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GeminiService } from './gemini.service';
-
-type TextDto = {
-  prompt: string;
-  model?: string;
-  systemInstruction?: string;
-};
-
-type PromptDto = {
-  prompt?: string;
-  model?: string;
-  systemInstruction?: string;
-};
+import type { ChatRequestDto, PromptDto, TextDto } from './dto';
 
 @Controller()
 export class GeminiController {
   constructor(private readonly gemini: GeminiService) {}
+
+  @Post('api/chat')
+  @HttpCode(HttpStatus.OK)
+  chatWithGemini(@Body() body: ChatRequestDto) {
+    const { prompt, model, systemInstruction, messages } = body || {};
+    const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+
+    let effectivePrompt = trimmedPrompt;
+
+    if (!effectivePrompt && Array.isArray(messages)) {
+      const lastUserMessage = [...messages]
+        .reverse()
+        .find(
+          (message) =>
+            message?.role === 'user' && typeof message?.content === 'string',
+        );
+      if (lastUserMessage?.content) {
+        effectivePrompt = lastUserMessage.content.trim();
+      }
+    }
+
+    if (!effectivePrompt) {
+      throw new BadRequestException('prompt is required (string)');
+    }
+
+    return this.gemini.chat({
+      prompt: effectivePrompt,
+      model,
+      systemInstruction,
+      messages: Array.isArray(messages) ? messages : undefined,
+    });
+  }
 
   @Post('generate-text')
   @HttpCode(HttpStatus.OK)

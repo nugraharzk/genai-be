@@ -32,7 +32,8 @@ RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
 
 # Copy manifest and install only production dependencies
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+# Skip lifecycle scripts (e.g., husky prepare) in production image
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # Copy build output
 COPY --from=builder /app/dist ./dist

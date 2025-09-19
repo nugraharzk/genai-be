@@ -1,8 +1,14 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import type { ChatMessageDto, ChatRequestDto } from './dto';
 
 type GenerateOptions = {
   model?: string;
   systemInstruction?: string;
+};
+
+type ChatContent = {
+  role: 'user' | 'model';
+  parts: Array<{ text: string }>;
 };
 
 @Injectable()
@@ -22,6 +28,56 @@ export class GeminiService {
     this.client = null;
   }
 
+  async chat(request: ChatRequestDto) {
+    try {
+      const modelName = request.model || this.defaultModel;
+      const prompt = request.prompt?.trim() ?? '';
+      const instructions: string[] = [];
+      if (request.systemInstruction?.trim()) {
+        instructions.push(request.systemInstruction.trim());
+      }
+
+      const history = this.mapMessagesToHistory(
+        request.messages ?? [],
+        instructions,
+      );
+
+      await this.ensureClient();
+
+      if (this.clientMode === 'genai' && this.client?.chats?.create) {
+        const { promptToSend, historyForSession } = this.prepareChatPayload(
+          prompt,
+          history,
+        );
+        const sessionInstruction = this.combineInstructions(instructions);
+        const chatParams: Record<string, unknown> = { model: modelName };
+        if (historyForSession.length) {
+          chatParams.history = historyForSession;
+        }
+        if (sessionInstruction) {
+          chatParams.config = {
+            systemInstruction: sessionInstruction,
+          };
+        }
+
+        const chat = this.client.chats.create(chatParams);
+        const response = await chat.sendMessage({ message: promptToSend });
+        const text = this.extractText(response);
+        return { model: modelName, text };
+      }
+
+      const instructionText = this.combineInstructions(instructions);
+      const fallbackPrompt =
+        prompt || this.buildFallbackPrompt(history, instructionText);
+      return this.generateText(fallbackPrompt, {
+        model: request.model,
+        systemInstruction: instructionText,
+      });
+    } catch (err: any) {
+      throw new InternalServerErrorException(this.normalizeError(err));
+    }
+  }
+
   async generateText(prompt: string, options: GenerateOptions = {}) {
     try {
       const modelName = options.model || this.defaultModel;
@@ -32,18 +88,12 @@ export class GeminiService {
           req.systemInstruction = options.systemInstruction;
         req.input = prompt;
         const result = await this.client.responses.generate(req);
-        const text =
-          result?.output_text ??
-          result?.response?.text?.() ??
-          result?.candidates?.[0]?.content?.parts?.[0]?.text ??
-          result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = this.extractText(result);
         return { model: modelName, text };
       } else if (this.client?.getGenerativeModel) {
         const model = this.client.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(prompt);
-        const text =
-          result?.response?.text?.() ??
-          result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = this.extractText(result?.response ?? result);
         return { model: modelName, text };
       }
       throw new Error('No compatible Gemini client available');
@@ -67,18 +117,12 @@ export class GeminiService {
           },
         ];
         const result = await this.client.responses.generate(req);
-        const text =
-          result?.output_text ??
-          result?.response?.text?.() ??
-          result?.candidates?.[0]?.content?.parts?.[0]?.text ??
-          result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = this.extractText(result);
         return { model: modelName, text };
       } else if (this.client?.getGenerativeModel) {
         const model = this.client.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(parts);
-        const text =
-          result?.response?.text?.() ??
-          result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = this.extractText(result?.response ?? result);
         return { model: modelName, text };
       }
       throw new Error('No compatible Gemini client available');
@@ -104,7 +148,10 @@ export class GeminiService {
     try {
       const mod = await import('@google/genai');
       const maybeCtor =
-        (mod as any).GoogleAI || (mod as any).default || (mod as any).Client;
+        (mod as any).GoogleAI ||
+        (mod as any).GoogleGenAI ||
+        (mod as any).default ||
+        (mod as any).Client;
       if (typeof maybeCtor === 'function') {
         this.client = new maybeCtor({ apiKey });
         this.clientMode = 'genai';
@@ -121,7 +168,7 @@ export class GeminiService {
       // If module loaded but unexpected shape, fall through to legacy
 
       console.warn(
-        'Loaded @google/genai but did not find a constructible client; falling back',
+        'Loaded @google/genai but did not find a supported constructor; falling back',
       );
     } catch (e) {
       // Continue to fallback
@@ -145,6 +192,95 @@ export class GeminiService {
         `Failed to initialize Gemini client from either @google/genai or @google/generative-ai: ${e?.message || e}`,
       );
     }
+  }
+
+  private mapMessagesToHistory(
+    messages: ChatMessageDto[],
+    instructions: string[],
+  ): ChatContent[] {
+    const history: ChatContent[] = [];
+    for (const message of messages) {
+      if (!message?.content) continue;
+      const text = message.content.trim();
+      if (!text) continue;
+      if (message.role === 'system') {
+        instructions.push(text);
+        continue;
+      }
+      const role = message.role === 'assistant' ? 'model' : 'user';
+      history.push({
+        role,
+        parts: [{ text }],
+      });
+    }
+    return history;
+  }
+
+  private prepareChatPayload(prompt: string, history: ChatContent[]) {
+    let promptToSend = prompt.trim();
+    let historyForSession = history;
+
+    if (!promptToSend && historyForSession.length) {
+      const last = historyForSession[historyForSession.length - 1];
+      if (last.role === 'user') {
+        const lastText = this.firstTextPart(last);
+        if (lastText) {
+          promptToSend = lastText;
+          historyForSession = historyForSession.slice(0, -1);
+        }
+      }
+    }
+
+    if (!promptToSend) {
+      throw new Error('prompt is required (string)');
+    }
+
+    return { promptToSend, historyForSession };
+  }
+
+  private firstTextPart(content: ChatContent) {
+    for (const part of content.parts) {
+      if (typeof part?.text === 'string' && part.text.trim()) {
+        return part.text;
+      }
+    }
+    return undefined;
+  }
+
+  private combineInstructions(instructions: string[]) {
+    const cleaned = instructions.map((value) => value.trim()).filter(Boolean);
+    if (!cleaned.length) {
+      return undefined;
+    }
+    return cleaned.join('\n\n');
+  }
+
+  private buildFallbackPrompt(
+    history: ChatContent[],
+    instructionText?: string,
+  ) {
+    const lines: string[] = [];
+    if (instructionText) {
+      lines.push(`System: ${instructionText}`);
+    }
+    for (const entry of history) {
+      const label = entry.role === 'user' ? 'User' : 'Assistant';
+      const text = this.firstTextPart(entry);
+      if (text) {
+        lines.push(`${label}: ${text}`);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  private extractText(result: any) {
+    return (
+      result?.output_text ??
+      result?.response?.text?.() ??
+      result?.text?.() ??
+      result?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text
+    );
   }
 
   private normalizeError(err: any) {
