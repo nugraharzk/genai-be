@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ChatMessageDto, ChatRequestDto, PromptDto, TextDto } from './dto';
+import type { ChatMessageDto, ChatRequestDto } from './dto';
 
 /**
  * LmStudioService
@@ -22,7 +22,8 @@ export class LmStudioService {
   private readonly defaultModel?: string;
 
   constructor() {
-    this.baseUrl = process.env.LMSTUDIO_BASE_URL?.trim() || 'http://localhost:1234';
+    this.baseUrl =
+      process.env.LMSTUDIO_BASE_URL?.trim() || 'http://localhost:1234';
     this.apiKey = process.env.LMSTUDIO_API_KEY?.trim() || undefined;
     this.defaultModel = process.env.LMSTUDIO_MODEL?.trim() || undefined;
   }
@@ -57,13 +58,19 @@ export class LmStudioService {
    * Prompt-only text generation. Internally uses chat completions with a single user message,
    * optionally preceded by a system instruction.
    */
-  async generateText(prompt: string, options: { model?: string; systemInstruction?: string } = {}) {
+  async generateText(
+    prompt: string,
+    options: { model?: string; systemInstruction?: string } = {},
+  ) {
     try {
       const modelName = this.resolveModel(options.model);
       const messages: Array<{ role: string; content: string }> = [];
 
       if (options.systemInstruction?.trim()) {
-        messages.push({ role: 'system', content: options.systemInstruction.trim() });
+        messages.push({
+          role: 'system',
+          content: options.systemInstruction.trim(),
+        });
       }
       messages.push({ role: 'user', content: prompt });
 
@@ -95,7 +102,10 @@ export class LmStudioService {
 
       const messages: Array<{ role: string; content: string }> = [];
       if (options.systemInstruction?.trim()) {
-        messages.push({ role: 'system', content: options.systemInstruction.trim() });
+        messages.push({
+          role: 'system',
+          content: options.systemInstruction.trim(),
+        });
       }
       messages.push({ role: 'user', content: textPrompt });
 
@@ -153,7 +163,12 @@ export class LmStudioService {
     for (const m of history) {
       const content = (m?.content ?? '').trim();
       if (!content) continue;
-      const role = m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user';
+      const role =
+        m.role === 'assistant'
+          ? 'assistant'
+          : m.role === 'system'
+            ? 'system'
+            : 'user';
       messages.push({ role, content });
     }
 
@@ -167,7 +182,10 @@ export class LmStudioService {
       // Derive a user message from the last assistant entry or insert a placeholder
       const last = messages[messages.length - 1];
       if (!last || last.role !== 'user') {
-        messages.push({ role: 'user', content: 'Please respond to the conversation above.' });
+        messages.push({
+          role: 'user',
+          content: 'Please respond to the conversation above.',
+        });
       }
     }
 
@@ -184,8 +202,11 @@ export class LmStudioService {
       }
       // inlineData part (binary payload) -> convert to placeholder
       const mime = p?.inlineData?.mimeType || 'application/octet-stream';
-      const bytes = typeof p?.inlineData?.data === 'string' ? p.inlineData.data.length : 0;
-      lines.push(`[Attachment: ${mime}, ${bytes} bytes; content omitted in local text-only mode]`);
+      const bytes =
+        typeof p?.inlineData?.data === 'string' ? p.inlineData.data.length : 0;
+      lines.push(
+        `[Attachment: ${mime}, ${bytes} bytes; content omitted in local text-only mode]`,
+      );
     }
     return lines.length ? lines.join('\n\n') : '(no content)';
   }
@@ -241,7 +262,9 @@ export class LmStudioService {
     if (typeof content === 'string') return content;
 
     // Some implementations may return an array of content parts {type,text}
-    const parts = Array.isArray(content) ? content : choice?.message?.content?.parts;
+    const parts = Array.isArray(content)
+      ? content
+      : choice?.message?.content?.parts;
     if (Array.isArray(parts)) {
       const text = parts
         .map((p: any) => p?.text || p?.content || '')
