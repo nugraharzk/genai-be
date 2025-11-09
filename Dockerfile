@@ -38,5 +38,14 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 # Copy build output
 COPY --from=builder /app/dist ./dist
 
+
+# LM Studio (optional) environment variables
+# If your LM Studio server runs on the host machine, host.docker.internal is accessible from Docker on Windows/macOS.
+# Set LMSTUDIO_MODEL to the local model name loaded in LM Studio. Leave LMSTUDIO_API_KEY empty if not required.
+ENV LMSTUDIO_BASE_URL=http://host.docker.internal:1234
+ENV LMSTUDIO_MODEL=your-local-model-name
+ENV LMSTUDIO_API_KEY=
+
 EXPOSE 5000
+
 CMD ["node", "dist/main.js"]

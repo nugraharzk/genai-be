@@ -1,28 +1,62 @@
 ## genai-be (Gemini REST API)
 
-REST API wrapper for Gemini using @google/genai, NestJS, dotenv, and multer. Packaged with Docker to run on port 5000.
+
+REST API wrapper for Gemini using @google/genai and an LM Studio adapter, built with NestJS, dotenv, and multer. Packaged with Docker to run on port 5000.
+
+
 
 Endpoints
 
-- POST `/generate-text` — JSON: `{ "prompt": string, "model?": string, "systemInstruction?": string }`
-- POST `/generate-from-image` — multipart: `image` file, plus optional `prompt`, `model`, `systemInstruction`
-- POST `/generate-from-document` — multipart: `document` file, plus optional fields above
-- POST `/generate-from-audio` — multipart: `audio` file, plus optional fields above
+
+
+- Gemini routes
+  - POST `/generate-text` — JSON: `{ "prompt": string, "model?": string, "systemInstruction?": string }`
+
+  - POST `/generate-from-image` — multipart: `image` file, plus optional `prompt`, `model`, `systemInstruction`
+
+  - POST `/generate-from-document` — multipart: `document` file, plus optional fields above
+
+  - POST `/generate-from-audio` — multipart: `audio` file, plus optional fields above
+
+  - POST `/api/chat` — JSON: `{ "prompt?": string, "messages?": ChatHistory[], "model?": string, "systemInstruction?": string }`
+
+
+- LM Studio routes (OpenAI-compatible via backend)
+  - POST `/lm/generate-text` — JSON: `{ "prompt": string, "model?": string, "systemInstruction?": string }`
+  - POST `/lm/api/chat` — JSON: `{ "prompt?": string, "messages?": ChatHistory[], "model?": string, "systemInstruction?": string }`
+
+  - POST `/lm/generate-from-image` — multipart: `image` file, plus optional `prompt`, `model`, `systemInstruction`
+
+  - POST `/lm/generate-from-document` — multipart: `document` file, plus optional fields above
+  - POST `/lm/generate-from-audio` — multipart: `audio` file, plus optional fields above
 
 Setup
 
-- Copy `.env.example` to `.env` and set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).
+- Copy `.env.example` to `.env` and set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). For LM Studio, set `LMSTUDIO_BASE_URL` (default `http://localhost:1234`) and `LMSTUDIO_MODEL` (and optionally `LMSTUDIO_API_KEY`).
+
 - Run: `npm install && npm run build && npm run start:prod` (port 5000 by default).
+
+
 
 Docker
 
+
+
 - Build: `docker build -t genai-be .`
+
 - Run: `docker run --rm -p 5000:5000 --env-file .env genai-be`
+
+
 
 Notes
 
-- Default model: `gemini-1.5-flash` (override with `GEMINI_MODEL` or per-request `model`).
-- File size limits: image ~15MB, document ~20MB, audio ~25MB. For larger inputs, consider the Gemini Files API.
+
+
+- Gemini default model: `gemini-1.5-flash` (override with `GEMINI_MODEL` or per-request `model`).
+
+- LM Studio: configure `LMSTUDIO_MODEL` (required if you don’t pass `model`), `LMSTUDIO_BASE_URL` (default `http://localhost:1234`), and optionally `LMSTUDIO_API_KEY`.
+- File size limits: image ~15MB, document ~20MB, audio ~25MB. For LM Studio routes, binary uploads are converted to textual placeholders for local LLMs.
+
 
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
